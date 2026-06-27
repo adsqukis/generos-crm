@@ -397,26 +397,98 @@
     function Segments() {
       const [rows, setRows] = useState(null);
       const [err, setErr] = useState('');
+      const [selectedSegment, setSelectedSegment] = useState(null);
+      const [customers, setCustomers] = useState(null);
+      const [loadingCustomers, setLoadingCustomers] = useState(false);
+
       useEffect(() => {
         api('/api/segments').then((d) => setRows(d.segments)).catch((e) => setErr(e.message));
       }, []);
+
+      const loadCustomers = async (seg) => {
+        setSelectedSegment(seg);
+        setCustomers(null);
+        setLoadingCustomers(true);
+        try {
+          const d = await api('/api/customers?segment=' + seg.id + '&limit=100');
+          setCustomers(d.customers);
+        } catch (e) { setErr(e.message); }
+        setLoadingCustomers(false);
+      };
+
       if (err) return <Empty msg={err} />;
       if (!rows) return <Loading />;
+
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {rows.map((s) => (
-            <div key={s.id} className="rounded-lg p-4" style={{ background: C.panel, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.accent2}` }}>
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-semibold" style={{ color: C.text }}>{s.segment_name}</h3>
-                <span className="mono text-xs px-2 py-0.5 rounded" style={{ background: C.bg, color: C.dim }}>P{s.priority}</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {rows.map((s) => (
+              <div key={s.id} onClick={() => loadCustomers(s)}
+                className="rounded-lg p-4 cursor-pointer transition"
+                style={{
+                  background: C.panel,
+                  border: `1px solid ${selectedSegment?.id === s.id ? C.accent2 : C.border}`,
+                  borderTop: `2px solid ${selectedSegment?.id === s.id ? C.accent2 : C.accent2}`,
+                }}>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold" style={{ color: C.text }}>{s.segment_name}</h3>
+                  <span className="mono text-xs px-2 py-0.5 rounded" style={{ background: C.bg, color: C.dim }}>P{s.priority}</span>
+                </div>
+                <p className="text-xs mb-3" style={{ color: C.dim }}>{s.description}</p>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: C.dim }}>Customers</span>
+                  <span className="mono" style={{ color: C.accent }}>{s.customer_count}</span>
+                </div>
               </div>
-              <p className="text-xs mb-3" style={{ color: C.dim }}>{s.description}</p>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: C.dim }}>Customers</span>
-                <span className="mono" style={{ color: C.accent }}>{s.customer_count}</span>
+            ))}
+          </div>
+
+          {selectedSegment && (
+            <div className="rounded-lg" style={{ border: `1px solid ${C.border}` }}>
+              <div className="px-4 py-3 text-sm font-semibold flex items-center gap-2" style={{ background: C.panel, color: C.text, borderBottom: `1px solid ${C.border}` }}>
+                <span>Customer di {selectedSegment.segment_name}</span>
+                <span className="text-xs mono px-2 py-0.5 rounded" style={{ background: C.bg, color: C.dim }}>
+                  {customers ? customers.length : '...'}
+                </span>
               </div>
+              {loadingCustomers ? (
+                <div className="p-4 text-xs text-center" style={{ color: C.dim }}>loading…</div>
+              ) : !customers || customers.length === 0 ? (
+                <div className="p-4 text-xs text-center" style={{ color: C.dim }}>No customers in this segment</div>
+              ) : (
+                <div className="table-wrap">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: C.panel }}>
+                        <th className="text-left px-3 py-2 text-xs" style={{ color: C.dim }}>Phone</th>
+                        <th className="text-left px-3 py-2 text-xs" style={{ color: C.dim }}>Name</th>
+                        <th className="text-left px-3 py-2 text-xs hide-mobile" style={{ color: C.dim }}>RFM</th>
+                        <th className="text-left px-3 py-2 text-xs hide-mobile" style={{ color: C.dim }}>Freq</th>
+                        <th className="text-right px-3 py-2 text-xs" style={{ color: C.dim }}>Spend</th>
+                        <th className="text-center px-3 py-2 text-xs" style={{ color: C.dim }}>Last</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customers.map((c) => (
+                        <tr key={c.phone_number} style={{ background: C.bg, borderTop: `1px solid ${C.border}` }}>
+                          <td className="px-3 py-2 mono text-xs" style={{ color: C.text }}>{c.phone_number}</td>
+                          <td className="px-3 py-2" style={{ color: C.text }}>{c.name}</td>
+                          <td className="px-3 py-2 mono text-xs hide-mobile" style={{ color: C.accent }}>{c.rfm_score || '-'}</td>
+                          <td className="px-3 py-2 hide-mobile" style={{ color: C.text }}>{c.rfm_frequency}</td>
+                          <td className="px-3 py-2 text-right mono text-xs" style={{ color: C.text }}>
+                            {Number(c.rfm_monetary || 0).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-center mono text-xs" style={{ color: C.dim }}>
+                            {c.last_interaction_date ? new Date(c.last_interaction_date).toLocaleDateString() : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       );
     }
