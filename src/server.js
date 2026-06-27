@@ -285,6 +285,19 @@ app.delete('/api/uploads/:id', authenticate, requireRole('admin', 'marketing_man
   }
 });
 
+// TEMP: Clean up duplicate segments
+app.post('/api/admin/clean-segments', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM segments WHERE id NOT IN (SELECT MIN(id) FROM segments GROUP BY segment_name)`
+    );
+    const remaining = (await pool.query('SELECT COUNT(*) as c FROM segments')).rows[0].c;
+    res.json({ success: true, remaining_segments: remaining });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================
 // COHORTS & SEGMENTS
 // ============================================

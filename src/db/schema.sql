@@ -94,6 +94,9 @@ CREATE TABLE IF NOT EXISTS segments (
   updated_by UUID REFERENCES users(id)
 );
 
+-- Ensure no duplicate segment names
+CREATE UNIQUE INDEX IF NOT EXISTS idx_segments_name ON segments(segment_name);
+
 -- ============================================
 -- CUSTOMERS
 -- ============================================
