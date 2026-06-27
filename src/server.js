@@ -111,6 +111,33 @@ app.get('/api/customers/:phone', authenticate, async (req, res) => {
   }
 });
 
+app.put('/api/customers/:phone', authenticate, requireRole('admin', 'marketing_manager'), async (req, res) => {
+  try {
+    const { name, phone_number } = req.body;
+    const result = await pool.query(
+      `UPDATE customers SET name = COALESCE($1, name), phone_number = COALESCE($2, phone_number), updated_at = NOW()
+       WHERE phone_number = $3 RETURNING *`,
+      [name, phone_number, req.params.phone]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Customer not found' });
+    res.json({ customer: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/customers/:phone', authenticate, requireRole('admin', 'marketing_manager'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM purchases WHERE customer_phone = $1', [req.params.phone]);
+    await pool.query('DELETE FROM tasks WHERE customer_phone = $1', [req.params.phone]);
+    const result = await pool.query('DELETE FROM customers WHERE phone_number = $1 RETURNING phone_number', [req.params.phone]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Customer not found' });
+    res.json({ deleted: true, phone: result.rows[0].phone_number });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================
 // UPLOAD
 // ============================================
