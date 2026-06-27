@@ -57,19 +57,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 // --- Health check (Railway uses this) ---
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
-// --- Debug: test password hash ---
-app.get('/api/debug-pass', async (req, res) => {
-  try {
-    const user = await pool.query('SELECT email, name, role, is_active, LEFT(password_hash, 30) as hp FROM users WHERE email = $1', ['admin@generos.com']);
-    if (!user.rows[0]) return res.json({ found: false });
-    const full = await pool.query('SELECT password_hash FROM users WHERE email = $1', ['admin@generos.com']);
-    const realMatch = await bcrypt.compare('admin123', full.rows[0].password_hash);
-    return res.json({ found: true, ...user.rows[0], realMatch });
-  } catch (err) {
-    return res.json({ error: err.message });
-  }
-});
-
 // ============================================
 // AUTH
 // ============================================
