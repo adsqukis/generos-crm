@@ -519,8 +519,41 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Generos CRM server running on port ${PORT}`);
+  // Auto-migrate and seed on startup
+  try {
+    const __dir = _d(_f(import.meta.url));
+    const schema = readFileSync(_j(__dir, 'db/schema.sql'), 'utf-8');
+    await pool.query(schema);
+    console.log('✓ Auto-migration done');
+
+    const bcrypt = (await import('bcryptjs')).default;
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
+    const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
+    const hash = await bcrypt.hash(adminPass, 10);
+    await pool.query(
+      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING`,
+      [adminEmail, hash, 'Admin', 'admin']
+    );
+    console.log('✓ Auto-seed: admin user');
+
+    const segs = [
+      ['High-Value Repeat',1,2,2,2,'high'],['Power Buyer',2,3,2,2,'high'],
+      ['Regular Customer',3,3,3,3,'medium'],['At-Risk High-Value',4,5,3,2,'high'],
+      ['One-Time Buyer',5,5,4,4,'low'],['Dormant',6,5,5,5,'low'],
+    ];
+    for (const s of segs) {
+      await pool.query(
+        `INSERT INTO segments (segment_name, description, priority, rfm_recency_min, rfm_frequency_min, rfm_monetary_min, contact_frequency)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`,
+        [s[0], s[0], s[1], s[2], s[3], s[4], s[5]]
+      );
+    }
+    console.log('✓ Auto-seed: segments');
+  } catch (err) {
+    console.error('Auto-setup error:', err.message);
+  }
 });
 
 export default app;
