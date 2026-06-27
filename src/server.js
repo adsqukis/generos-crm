@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import multer from 'multer';
+import { readFileSync } from 'fs';
 
 import pool from './db/pool.js';
 import { authenticate, requireRole, authenticateJob } from './middleware/auth.js';
@@ -452,6 +453,52 @@ app.get('/api/dashboard/overview', authenticate, async (req, res) => {
       pendingTasks: parseInt(pendingTasks),
       lastUpload: lastUpload || null,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Temporary: setup endpoint (REMOVE AFTER USE) ---
+app.post('/api/setup/run', async (req, res) => {
+  try {
+    const bcrypt = (await import('bcryptjs')).default;
+    
+    // Read + run schema
+    const __setupDir = _d(_f(import.meta.url));
+    const schema = readFileSync(_j(__setupDir, 'db/schema.sql'), 'utf-8');
+    await pool.query(schema);
+    console.log('✓ Migration done');
+
+    // Create admin user
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
+    const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
+    const hash = await bcrypt.hash(adminPass, 10);
+    await pool.query(
+      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO NOTHING`,
+      [adminEmail, hash, 'Admin', 'admin']
+    );
+    console.log('✓ Admin user created');
+
+    // Create default segments
+    const segments = [
+      { name: 'High-Value Repeat', priority: 1, r: 2, f: 2, m: 2, freq: 'high', desc: 'Recent, frequent, high spenders' },
+      { name: 'Power Buyer', priority: 2, r: 3, f: 2, m: 2, freq: 'high', desc: 'Frequent high-value buyers' },
+      { name: 'Regular Customer', priority: 3, r: 3, f: 3, m: 3, freq: 'medium', desc: 'Steady mid-tier buyers' },
+      { name: 'At-Risk High-Value', priority: 4, r: 5, f: 3, m: 2, freq: 'high', desc: 'High spenders going quiet' },
+      { name: 'One-Time Buyer', priority: 5, r: 5, f: 4, m: 4, freq: 'low', desc: 'Bought once, needs nurture' },
+      { name: 'Dormant', priority: 6, r: 5, f: 5, m: 5, freq: 'low', desc: 'Inactive — low priority' },
+    ];
+    for (const s of segments) {
+      await pool.query(
+        `INSERT INTO segments (segment_name, description, priority, rfm_recency_min, rfm_frequency_min, rfm_monetary_min, contact_frequency)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`,
+        [s.name, s.desc, s.priority, s.r, s.f, s.m, s.freq]
+      );
+    }
+    console.log('✓ Segments created');
+
+    res.json({ status: 'ok', message: 'Migration + seed completed', admin: { email: adminEmail } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
