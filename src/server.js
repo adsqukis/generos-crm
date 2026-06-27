@@ -280,24 +280,6 @@ app.delete('/api/uploads/:id', authenticate, requireRole('admin', 'marketing_man
   }
 });
 
-// TEMP: Clear all customer data
-app.post('/api/admin/clear-customers', authenticate, requireRole('admin'), async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const del = await client.query("DELETE FROM customers WHERE status != 'deleted'");
-    await client.query('DELETE FROM upload_customers');
-    await client.query('DELETE FROM upload_history');
-    await client.query('COMMIT');
-    res.json({ success: true, deleted: del.rowCount });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
-  }
-});
-
 // ============================================
 // COHORTS & SEGMENTS
 // ============================================
