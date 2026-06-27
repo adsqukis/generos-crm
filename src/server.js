@@ -459,61 +459,6 @@ app.get('/api/dashboard/overview', authenticate, async (req, res) => {
   }
 });
 
-// --- Temporary: setup endpoint (REMOVE AFTER USE) ---
-app.post('/api/setup/run', async (req, res) => {
-  try {
-    console.log('=== SETUP START ===');
-    console.log('DATABASE_URL prefix:', process.env.DATABASE_URL?.substring(0, 35));
-    console.log('Admin email:', process.env.SEED_ADMIN_EMAIL);
-    console.log('Admin pass prefix:', process.env.SEED_ADMIN_PASSWORD?.substring(0, 10));
-    
-    const bcrypt = (await import('bcryptjs')).default;
-    console.log('bcrypt loaded');
-    
-    // Read + run schema
-    const __setupDir = _d(_f(import.meta.url));
-    console.log('Setup dir:', __setupDir);
-    const schema = readFileSync(_j(__setupDir, 'db/schema.sql'), 'utf-8');
-    console.log('Schema length:', schema.length);
-    await pool.query(schema);
-    console.log('✓ Migration done');
-
-    // Create admin user
-    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
-    const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
-    const hash = await bcrypt.hash(adminPass, 10);
-    await pool.query(
-      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (email) DO NOTHING`,
-      [adminEmail, hash, 'Admin', 'admin']
-    );
-    console.log('✓ Admin user created');
-
-    // Create default segments
-    const segments = [
-      { name: 'High-Value Repeat', priority: 1, r: 2, f: 2, m: 2, freq: 'high', desc: 'Recent, frequent, high spenders' },
-      { name: 'Power Buyer', priority: 2, r: 3, f: 2, m: 2, freq: 'high', desc: 'Frequent high-value buyers' },
-      { name: 'Regular Customer', priority: 3, r: 3, f: 3, m: 3, freq: 'medium', desc: 'Steady mid-tier buyers' },
-      { name: 'At-Risk High-Value', priority: 4, r: 5, f: 3, m: 2, freq: 'high', desc: 'High spenders going quiet' },
-      { name: 'One-Time Buyer', priority: 5, r: 5, f: 4, m: 4, freq: 'low', desc: 'Bought once, needs nurture' },
-      { name: 'Dormant', priority: 6, r: 5, f: 5, m: 5, freq: 'low', desc: 'Inactive — low priority' },
-    ];
-    for (const s of segments) {
-      await pool.query(
-        `INSERT INTO segments (segment_name, description, priority, rfm_recency_min, rfm_frequency_min, rfm_monetary_min, contact_frequency)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`,
-        [s.name, s.desc, s.priority, s.r, s.f, s.m, s.freq]
-      );
-    }
-    console.log('✓ Segments created');
-
-    res.json({ status: 'ok', message: 'Migration + seed completed', admin: { email: adminEmail } });
-  } catch (err) {
-    console.error('=== SETUP ERROR ===', err);
-    res.status(500).json({ error: err.message || err.code || 'Unknown error' });
-  }
-});
-
 // --- Error handler ---
 app.use((err, req, res, next) => {
   console.error(err);
@@ -529,16 +474,16 @@ app.listen(PORT, async () => {
     await pool.query(schema);
     console.log('✓ Auto-migration done');
 
-    // Reset admin password to known value
     const bcrypt = (await import('bcryptjs')).default;
     const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
-    const hash = await bcrypt.hash('admin123', 10);
+    const adminPass = process.env.SEED_ADMIN_PASSWORD || 'admin123';
+    const hash = await bcrypt.hash(adminPass, 10);
     await pool.query(
       `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = NOW()`,
       [adminEmail, hash, 'Admin', 'admin']
     );
-    console.log('✓ Admin password reset to: admin123');
+    console.log('✓ Auto-seed: admin user');
 
     const segs = [
       ['High-Value Repeat',1,2,2,2,'high'],['Power Buyer',2,3,2,2,'high'],
