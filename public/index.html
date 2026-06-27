@@ -526,13 +526,35 @@
             {busy && <div className="text-xs mono" style={{ color: C.dim }}>thinking…</div>}
             <div ref={endRef} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-3">
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Ask about your data…"
               className="flex-1 px-3 py-2 rounded text-sm outline-none"
               style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.text }} />
             <button onClick={send} disabled={busy} className="px-4 rounded text-sm font-medium" style={{ background: C.accent, color: '#0d1117' }}>Send</button>
+          </div>
+          {/* Panduan */}
+          <div className="rounded-lg p-3" style={{ background: C.panel, border: `1px solid ${C.border}` }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: C.accent2 }}>📖 Panduan Chat AI</p>
+            <div className="space-y-1">
+              <p className="text-xs" style={{ color: C.dim }}>Coba tanya:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[ 
+                  'Tampilkan customer dengan repeat purchase tertinggi',
+                  'Segment mana yang paling menguntungkan?',
+                  'Buatkan rekomendasi untuk cohort yang churn tinggi',
+                  'Analisa pola pembelian 30 hari terakhir',
+                  'Customer mana yang perlu difollow-up?',
+                ].map((q, i) => (
+                  <button key={i} onClick={() => { setInput(q); }}
+                    className="text-xs px-2 py-1 rounded transition"
+                    style={{ background: C.bg, color: C.text, border: `1px solid ${C.border}` }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       );
