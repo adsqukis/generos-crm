@@ -462,11 +462,15 @@ app.get('/api/dashboard/overview', authenticate, async (req, res) => {
 // --- Temporary: setup endpoint (REMOVE AFTER USE) ---
 app.post('/api/setup/run', async (req, res) => {
   try {
+    console.log('=== SETUP START ===');
     const bcrypt = (await import('bcryptjs')).default;
+    console.log('bcrypt loaded');
     
     // Read + run schema
     const __setupDir = _d(_f(import.meta.url));
+    console.log('Setup dir:', __setupDir);
     const schema = readFileSync(_j(__setupDir, 'db/schema.sql'), 'utf-8');
+    console.log('Schema length:', schema.length);
     await pool.query(schema);
     console.log('✓ Migration done');
 
@@ -501,7 +505,8 @@ app.post('/api/setup/run', async (req, res) => {
 
     res.json({ status: 'ok', message: 'Migration + seed completed', admin: { email: adminEmail } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('=== SETUP ERROR ===', err);
+    res.status(500).json({ error: err.message || err.code || 'Unknown error' });
   }
 });
 
