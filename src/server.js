@@ -288,8 +288,11 @@ app.delete('/api/uploads/:id', authenticate, requireRole('admin', 'marketing_man
 // TEMP: Clean up duplicate segments
 app.post('/api/admin/clean-segments', authenticate, requireRole('admin'), async (req, res) => {
   try {
+    // Keep oldest entry per segment_name using created_at
     await pool.query(
-      `DELETE FROM segments WHERE id NOT IN (SELECT MIN(id) FROM segments GROUP BY segment_name)`
+      `DELETE FROM segments WHERE id NOT IN (
+        SELECT DISTINCT ON (segment_name) id FROM segments ORDER BY segment_name, created_at ASC
+      )`
     );
     const remaining = (await pool.query('SELECT COUNT(*) as c FROM segments')).rows[0].c;
     res.json({ success: true, remaining_segments: remaining });
