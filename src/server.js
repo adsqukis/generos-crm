@@ -152,14 +152,23 @@ app.post('/api/uploads', authenticate, requireRole('admin', 'marketing_manager')
     await client.query('BEGIN');
     let newCount = 0, updatedCount = 0;
 
+    // Create upload history record first
+    const uploadRes = await client.query(
+      "INSERT INTO upload_history (file_name, uploaded_by, total_rows, status) VALUES ($1,$2,$3,'processing') RETURNING id",
+      [req.file.originalname, req.user.id, rows.length]
+    );
+    const uploadId = uploadRes.rows[0].id;
+
     for (const cust of customers) {
       // Upsert customer
       const existing = await client.query('SELECT phone_number FROM customers WHERE phone_number = $1', [cust.phone_number]);
       const earliestDate = cust.purchases.reduce((min, p) => p.purchase_date < min ? p.purchase_date : min, cust.purchases[0].purchase_date);
+      let action = 'updated';
 
       if (existing.rows[0]) {
         updatedCount++;
       } else {
+        action = 'created';
         // Assign cohort based on earliest purchase date
         const { ensureCohort } = await import('./services/cohortService.js');
         const cohortId = await ensureCohort(client, earliestDate);
@@ -169,6 +178,12 @@ app.post('/api/uploads', authenticate, requireRole('admin', 'marketing_manager')
         );
         newCount++;
       }
+
+      // Link customer to upload
+      await client.query(
+        'INSERT INTO upload_customers (upload_id, customer_phone, action) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+        [uploadId, cust.phone_number, action]
+      );
 
       // Insert purchases
       for (const p of cust.purchases) {
@@ -191,14 +206,72 @@ app.post('/api/uploads', authenticate, requireRole('admin', 'marketing_manager')
       );
     }
 
-    // Log upload
+    // Update upload record
     await client.query(
-      'INSERT INTO upload_history (file_name, uploaded_by, total_rows, success_count, error_count, error_log, status) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [req.file.originalname, req.user.id, rows.length, valid.length, errors.length, JSON.stringify(errors), 'completed']
+      "UPDATE upload_history SET status='completed', success_count=$1, error_count=$2, error_log=$3 WHERE id=$4",
+      [valid.length, errors.length, JSON.stringify(errors), uploadId]
     );
 
     await client.query('COMMIT');
     res.json({ success: true, newCustomers: newCount, updatedCustomers: updatedCount, errors });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    // Mark upload as failed
+    if (uploadId) {
+      await client.query("UPDATE upload_history SET status='failed' WHERE id=$1", [uploadId]);
+    }
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ============================================
+// UPLOAD HISTORY
+// ============================================
+app.get('/api/uploads', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.*, usr.name as uploaded_by_name,
+        (SELECT COUNT(*) FROM upload_customers uc WHERE uc.upload_id = u.id AND uc.action = 'created') as customers_created,
+        (SELECT COUNT(*) FROM upload_customers uc WHERE uc.upload_id = u.id AND uc.action = 'updated') as customers_updated
+       FROM upload_history u
+       LEFT JOIN users usr ON usr.id = u.uploaded_by
+       ORDER BY u.created_at DESC`
+    );
+    res.json({ uploads: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/uploads/:id', authenticate, requireRole('admin', 'marketing_manager'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get upload info
+    const upload = await client.query('SELECT * FROM upload_history WHERE id = $1', [req.params.id]);
+    if (!upload.rows[0]) return res.status(404).json({ error: 'Upload not found' });
+
+    // Delete customers that were CREATED by this upload (cascades to purchases & tasks)
+    const created = await client.query(
+      "DELETE FROM customers WHERE phone_number IN (SELECT customer_phone FROM upload_customers WHERE upload_id = $1 AND action = 'created') RETURNING phone_number",
+      [req.params.id]
+    );
+
+    // Delete upload_customers records
+    await client.query('DELETE FROM upload_customers WHERE upload_id = $1', [req.params.id]);
+
+    // Delete the upload history record
+    await client.query('DELETE FROM upload_history WHERE id = $1', [req.params.id]);
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      deleted_customers: created.rows.length,
+      file_name: upload.rows[0].file_name,
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });

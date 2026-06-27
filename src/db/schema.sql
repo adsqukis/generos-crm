@@ -228,6 +228,14 @@ CREATE TABLE IF NOT EXISTS upload_history (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Track which customers were created/updated by each upload
+CREATE TABLE IF NOT EXISTS upload_customers (
+  upload_id UUID REFERENCES upload_history(id) ON DELETE CASCADE,
+  customer_phone VARCHAR(20) REFERENCES customers(phone_number) ON DELETE CASCADE,
+  action VARCHAR(10) CHECK (action IN ('created', 'updated')),
+  PRIMARY KEY (upload_id, customer_phone)
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
