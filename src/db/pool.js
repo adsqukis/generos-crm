@@ -5,10 +5,10 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// Standard Railway PostgreSQL (SSL template)
+// Standard Railway PostgreSQL — try no SSL first, SSL fallback
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: false,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
