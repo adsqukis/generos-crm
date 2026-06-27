@@ -464,7 +464,7 @@ app.post('/api/setup/run', async (req, res) => {
   try {
     console.log('=== SETUP START ===');
     console.log('DATABASE_URL prefix:', process.env.DATABASE_URL?.substring(0, 35));
-    console.log('DATABASE_PUBLIC_URL prefix:', process.env.DATABASE_PUBLIC_URL?.substring(0, 35));
+    console.log('Admin email:', process.env.SEED_ADMIN_EMAIL);
     
     const bcrypt = (await import('bcryptjs')).default;
     console.log('bcrypt loaded');
