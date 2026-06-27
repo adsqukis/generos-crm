@@ -532,6 +532,7 @@ app.listen(PORT, async () => {
     const bcrypt = (await import('bcryptjs')).default;
     const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
     const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
+    console.log('Admin pass first 8 chars:', adminPass.substring(0, 8));
     const hash = await bcrypt.hash(adminPass, 10);
     await pool.query(
       `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
