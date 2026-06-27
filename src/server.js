@@ -212,6 +212,11 @@ app.post('/api/uploads', authenticate, requireRole('admin', 'marketing_manager')
       [valid.length, errors.length, JSON.stringify(errors), uploadId]
     );
 
+    // Recalculate cohort metrics & reassign segments
+    const churnDays = parseInt(process.env.CHURN_THRESHOLD_DAYS) || 90;
+    await recalculateCohortMetrics(client, churnDays);
+    await assignSegments(client);
+
     await client.query('COMMIT');
     res.json({ success: true, newCustomers: newCount, updatedCustomers: updatedCount, errors });
   } catch (err) {
