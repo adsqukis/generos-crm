@@ -480,14 +480,19 @@
 
     // ============ CHAT ============
     function Chat() {
-      const [messages, setMessages] = useState([
-        { role: 'ai', text: 'Ask me about your cohorts, segments, or customer patterns.' },
-      ]);
+      const [messages, setMessages] = useState(() => {
+        try {
+          const saved = localStorage.getItem('chat_messages');
+          return saved ? JSON.parse(saved) : [{ role: 'ai', text: 'Ask me about your cohorts, segments, or customer patterns.' }];
+        } catch { return [{ role: 'ai', text: 'Ask me about your cohorts, segments, or customer patterns.' }]; }
+      });
       const [input, setInput] = useState('');
       const [busy, setBusy] = useState(false);
-      const [convId, setConvId] = useState(null);
+      const [convId, setConvId] = useState(() => localStorage.getItem('chat_convId') || null);
       const endRef = useRef();
 
+      useEffect(() => { localStorage.setItem('chat_messages', JSON.stringify(messages)); }, [messages]);
+      useEffect(() => { if (convId) localStorage.setItem('chat_convId', convId); }, [convId]);
       useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
       const send = async () => {
@@ -501,7 +506,8 @@
             method: 'POST', body: JSON.stringify({ message: userMsg, conversationId: convId }),
           });
           setConvId(data.conversationId);
-          setMessages((m) => [...m, { role: 'ai', text: data.reply }]);
+          const cleaned = data.reply.replace(/\*+/g, '');
+          setMessages((m) => [...m, { role: 'ai', text: cleaned }]);
         } catch (e) {
           setMessages((m) => [...m, { role: 'ai', text: 'Error: ' + e.message, error: true }]);
         }
@@ -592,7 +598,7 @@
       };
 
       const logout = () => {
-        localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null);
+        localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('chat_messages'); localStorage.removeItem('chat_convId'); setUser(null);
       };
 
       const navItems = tabs.map((t) => (
