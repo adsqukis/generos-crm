@@ -46,6 +46,8 @@
       cursor: pointer; padding: 4px; }
     .hamburger svg { width: 22px; height: 22px; }
 
+    .bottom-nav { display: none; }
+
     @media (max-width: 768px) {
       .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
       .sidebar.open { transform: translateX(0); }
@@ -615,12 +617,8 @@
                 <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>
                   {sidebarOpen ? Icons.close : Icons.hamburger}
                 </button>
-                <span className="display text-base font-bold hide-mobile">{tabs.find((t) => isActive(t.id))?.label || 'Overview'}</span>
-                <span className="display text-base font-bold md:hidden">Generos</span>
+                <span className="display text-base font-bold">{tabs.find((t) => isActive(t.id))?.label || 'Overview'}</span>
               </div>
-              <span className="mono text-xs px-2 py-0.5 rounded" style={{ background: C.panel, color: C.dim }}>
-                {user.role}
-              </span>
             </div>
 
             {/* Content */}
