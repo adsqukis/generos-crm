@@ -8,10 +8,14 @@ const { Pool } = pg;
 // Railway injects DATABASE_URL automatically when Postgres plugin is added
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false, sslmode: 'require' } 
+    : process.env.DATABASE_URL?.includes('railway') 
+      ? { rejectUnauthorized: false } 
+      : false,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {
