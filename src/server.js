@@ -529,17 +529,16 @@ app.listen(PORT, async () => {
     await pool.query(schema);
     console.log('✓ Auto-migration done');
 
+    // Reset admin password to known value
     const bcrypt = (await import('bcryptjs')).default;
     const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@generos.com';
-    const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
-    console.log('Admin pass first 8 chars:', adminPass.substring(0, 8));
-    const hash = await bcrypt.hash(adminPass, 10);
+    const hash = await bcrypt.hash('admin123', 10);
     await pool.query(
       `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = NOW()`,
       [adminEmail, hash, 'Admin', 'admin']
     );
-    console.log('✓ Auto-seed: admin user');
+    console.log('✓ Admin password reset to: admin123');
 
     const segs = [
       ['High-Value Repeat',1,2,2,2,'high'],['Power Buyer',2,3,2,2,'high'],
