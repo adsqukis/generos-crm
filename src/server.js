@@ -463,6 +463,8 @@ app.get('/api/dashboard/overview', authenticate, async (req, res) => {
 app.post('/api/setup/run', async (req, res) => {
   try {
     console.log('=== SETUP START ===');
+    console.log('DATABASE_URL starts with:', process.env.DATABASE_URL?.substring(0, 30));
+    
     const bcrypt = (await import('bcryptjs')).default;
     console.log('bcrypt loaded');
     
