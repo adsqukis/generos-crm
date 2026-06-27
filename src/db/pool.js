@@ -5,14 +5,17 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// Railway SSL Postgres template — try internal first, fall back to public
-const dbUrl = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
+// Railway SSL Postgres template
 const pool = new Pool({
-  connectionString: dbUrl,
-  ssl: { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined,
+    minVersion: 'TLSv1.2',
+  },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
 });
 
 pool.on('error', (err) => {
