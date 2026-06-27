@@ -1,15 +1,15 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 
-// Don't override Railway env vars
-dotenv.config({ override: false });
+dotenv.config();
 
 const { Pool } = pg;
 
-// Railway injects DATABASE_URL automatically when Postgres plugin is added
+// Railway SSL Postgres template — try internal first, fall back to public
+const dbUrl = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: false,
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
