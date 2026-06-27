@@ -533,7 +533,8 @@ app.listen(PORT, async () => {
     const adminPass = process.env.SEED_ADMIN_PASSWORD || 'changeme123';
     const hash = await bcrypt.hash(adminPass, 10);
     await pool.query(
-      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING`,
+      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = NOW()`,
       [adminEmail, hash, 'Admin', 'admin']
     );
     console.log('✓ Auto-seed: admin user');
